@@ -184,15 +184,6 @@ class ZoteroObsidianSync:
 
         # Add metadata table for Dataview
         content = [
-            '## Metadata',
-            '```dataview',
-            'TABLE',
-            '    authors AS Authors,',
-            '    year AS Year,',
-            '    tags AS Tags',
-            'WHERE file = this.file',
-            '```\n',
-
             '## Abstract',
             f'{paper.get("abstractNote", "")}\n',
 
