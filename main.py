@@ -6,11 +6,13 @@ import re
 import argparse
 from typing import TypedDict, List, Dict, Optional
 
+
 class Paper(TypedDict, total=False):
     """
     TypedDict representing a paper from Zotero.
     total=False means all fields are optional except those in the required set.
     """
+
     # Required fields
     key: str
     type: str
@@ -26,8 +28,14 @@ class Paper(TypedDict, total=False):
     conferenceName: str
     publicationTitle: str
 
+
 class ZoteroObsidianSync:
-    def __init__(self, zotero_db_path: str, obsidian_vault_path: str, papers_folder: str = "zotero"):
+    def __init__(
+        self,
+        zotero_db_path: str,
+        obsidian_vault_path: str,
+        papers_folder: str = "zotero",
+    ):
         """
         Initialize the sync tool with paths to Zotero database and Obsidian vault.
 
@@ -44,7 +52,9 @@ class ZoteroObsidianSync:
     def connect_to_zotero(self) -> sqlite3.Connection:
         """Create a connection to the Zotero SQLite database."""
         if not self.zotero_db_path.exists():
-            raise FileNotFoundError(f"Zotero database not found at {self.zotero_db_path}")
+            raise FileNotFoundError(
+                f"Zotero database not found at {self.zotero_db_path}"
+            )
         return sqlite3.connect(str(self.zotero_db_path))
 
     def get_item_tags(self, cursor: sqlite3.Cursor, item_id: int) -> List[str]:
@@ -88,20 +98,22 @@ class ZoteroObsidianSync:
         if not date:
             return None
 
-        match = re.search(r'\d{4}', date)
+        match = re.search(r"\d{4}", date)
         return match.group(0) if match else None
 
     def get_venue_string(self, paper: Paper) -> Optional[str]:
         """Get formatted venue string based on paper type."""
-        if paper['type'] == 'conferencePaper':
-            if paper.get('series'):
-                return paper['series']
-            if paper.get('conferenceName'):
-                return (paper['conferenceName'].split(':')[0]
-                       if ':' in paper['conferenceName']
-                       else paper['conferenceName'])
-        elif paper['type'] == 'journalArticle':
-            return paper.get('publicationTitle')
+        if paper["type"] == "conferencePaper":
+            if paper.get("series"):
+                return paper["series"]
+            if paper.get("conferenceName"):
+                return (
+                    paper["conferenceName"].split(":")[0]
+                    if ":" in paper["conferenceName"]
+                    else paper["conferenceName"]
+                )
+        elif paper["type"] == "journalArticle":
+            return paper.get("publicationTitle")
         return None
 
     def get_zotero_items(self) -> List[Paper]:
@@ -144,10 +156,10 @@ class ZoteroObsidianSync:
         for item_id, key, type_name, field_name, value in results:
             if item_id not in papers:
                 papers[item_id] = {
-                    'key': key,
-                    'type': type_name,
-                    'tags': self.get_item_tags(cursor, item_id),
-                    'authors': self.get_item_authors(cursor, item_id)
+                    "key": key,
+                    "type": type_name,
+                    "tags": self.get_item_tags(cursor, item_id),
+                    "authors": self.get_item_authors(cursor, item_id),
                 }
             papers[item_id][field_name] = value
 
@@ -156,44 +168,45 @@ class ZoteroObsidianSync:
 
     def create_markdown_file(self, paper: Paper) -> None:
         """Create a markdown file for a paper with metadata in YAML frontmatter."""
-        title = paper.get('title', 'Untitled Paper')
-        safe_title = re.sub(r'[<>:"/\\|?*]', '-', title)
+        title = paper.get("title", "Untitled Paper")
+        safe_title = re.sub(r'[<>:"/\\|?*]', "-", title)
 
         # Create YAML frontmatter
         frontmatter = [
-            '---',
+            "---",
             f'title: "{title}"',
-            'type: academic-paper',
+            "type: academic-paper",
             f'year: {self.format_item_date(paper.get("date")) or "Unknown"}',
             f'authors: {json.dumps(paper["authors"])}',
             f'zotero-key: {paper["key"]}',
             f'accessed: {paper.get("accessDate", "")}',
         ]
 
-        if paper['tags']:
+        if paper["tags"]:
             frontmatter.append(f'tags: {json.dumps(paper["tags"])}')
 
-        if paper['authors']:
-            frontmatter.append(f'creator: {self.format_creator_string(paper["authors"])}')
+        if paper["authors"]:
+            frontmatter.append(
+                f'creator: {self.format_creator_string(paper["authors"])}'
+            )
 
         venue = self.get_venue_string(paper)
         if venue:
-            frontmatter.append(f'venue: {venue}')
+            frontmatter.append(f"venue: {venue}")
 
-        frontmatter.append('---\n')
+        frontmatter.append("---\n")
 
-        # Add metadata table for Dataview
         content = [
-            '## Abstract',
+            "## Abstract",
             f'{paper.get("abstractNote", "")}\n',
-
-            '## References',
+            "## Notes",
+            "## References",
             f'- Zotero Key: {paper["key"]}',
-            f'- DOI: {paper.get("DOI", "")}'
+            f'- DOI: {paper.get("DOI", "")}',
         ]
 
         file_path = self.papers_folder / f"{safe_title}.md"
-        file_path.write_text('\n'.join(frontmatter + content), encoding='utf-8')
+        file_path.write_text("\n".join(frontmatter + content), encoding="utf-8")
 
     def sync(self) -> None:
         """Synchronize Zotero library with Obsidian vault."""
@@ -202,28 +215,31 @@ class ZoteroObsidianSync:
             self.create_markdown_file(paper)
         print(f"Synchronized {len(papers)} papers to Obsidian vault")
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Sync Zotero library with Obsidian vault.")
-    parser.add_argument(
-        '--zotero-db',
-        type=str,
-        default="~/Zotero/zotero.sqlite",
-        help='Path to Zotero SQLite database'
+    parser = argparse.ArgumentParser(
+        description="Sync Zotero library with Obsidian vault."
     )
     parser.add_argument(
-        '--obsidian-vault',
+        "--zotero-db",
+        type=str,
+        default="~/Zotero/zotero.sqlite",
+        help="Path to Zotero SQLite database",
+    )
+    parser.add_argument(
+        "--obsidian-vault",
         type=str,
         default="~/Documents/ObsidianVault",
-        help='Path to Obsidian vault'
+        help="Path to Obsidian vault",
     )
 
     args = parser.parse_args()
 
     syncer = ZoteroObsidianSync(
-        os.path.expanduser(args.zotero_db),
-        os.path.expanduser(args.obsidian_vault)
+        os.path.expanduser(args.zotero_db), os.path.expanduser(args.obsidian_vault)
     )
     syncer.sync()
+
 
 if __name__ == "__main__":
     main()
