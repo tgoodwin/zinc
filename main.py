@@ -200,18 +200,22 @@ class ZoteroObsidianSync:
             f'title: "{title}"',
             "type: academic-paper",
             f'year: {self.format_item_date(paper.get("date")) or "Unknown"}',
-            f'authors: {json.dumps(paper["authors"])}',
             f'zotero-key: {paper["key"]}',
             f'accessed: {paper.get("accessDate", "")}',
         ]
 
         if paper["tags"]:
-            frontmatter.append(f'tags: {json.dumps(paper["tags"])}')
+            frontmatter.append("tags:")
+            for tag in paper["tags"]:
+                frontmatter.append(f"  - {tag}")
 
         if paper["authors"]:
             frontmatter.append(
                 f'creator: {self.format_creator_string(paper["authors"])}'
             )
+            frontmatter.append("authors:")
+            for author in paper["authors"]:
+                frontmatter.append(f"  - {author}")
 
         venue = self.get_venue_string(paper)
         if venue:
@@ -222,7 +226,7 @@ class ZoteroObsidianSync:
         content = [
             "## Abstract",
             f'{paper.get("abstractNote", "")}\n',
-            "## Notes",
+            "## Notes\n",
             "## References",
             f'- Zotero Key: {paper["key"]}',
             f'- DOI: {paper.get("DOI", "")}',
