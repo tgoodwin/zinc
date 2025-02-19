@@ -83,6 +83,28 @@ class ZoteroObsidianSync:
         cursor.execute(query, (item_id,))
         return [f"{first} {last}" for first, last, _ in cursor.fetchall()]
 
+    def get_pdf_backlink(self, cursor: sqlite3.Cursor, item_id: int) -> Optional[str]:
+        """Get links to the zotero item attachment"""
+        query = """
+        SELECT
+            items.itemID,
+            'zotero://select/library/items/' || child.key as zotero_uri
+        FROM items
+        JOIN itemTypes ON items.itemTypeID = itemTypes.itemTypeID
+        JOIN itemAttachments ON items.itemID = itemAttachments.parentItemID
+        JOIN items as child ON itemAttachments.itemID = child.itemID
+        WHERE itemAttachments.contentType = 'application/pdf'
+        AND items.itemID = ?
+        """
+        cursor.execute(query, (item_id,))
+        result = cursor.fetchone()
+        if result is None:
+            return None
+        _, link = result
+        if cursor.fetchone() is not None:
+            print(f"Warning: Multiple attachments found for item {item_id}. Only the first attachment link will be used.")
+        return link
+
     def format_creator_string(self, authors: List[str]) -> str:
         """Returns last name of first author followed by 'et al.' if there are more authors."""
         if not authors:
@@ -160,6 +182,7 @@ class ZoteroObsidianSync:
                     "type": type_name,
                     "tags": self.get_item_tags(cursor, item_id),
                     "authors": self.get_item_authors(cursor, item_id),
+                    "backlink": self.get_pdf_backlink(cursor, item_id),
                 }
             papers[item_id][field_name] = value
 
@@ -203,6 +226,8 @@ class ZoteroObsidianSync:
             "## References",
             f'- Zotero Key: {paper["key"]}',
             f'- DOI: {paper.get("DOI", "")}',
+
+            f'- [PDF]({paper["backlink"]})',
         ]
 
         file_path = self.papers_folder / f"{safe_title}.md"
