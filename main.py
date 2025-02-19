@@ -204,6 +204,7 @@ class ZoteroObsidianSync:
             f'accessed: {paper.get("accessDate", "")}',
         ]
 
+        # TODO 2 way sync this
         if paper["tags"]:
             frontmatter.append("tags:")
             for tag in paper["tags"]:
@@ -217,6 +218,7 @@ class ZoteroObsidianSync:
             for author in paper["authors"]:
                 frontmatter.append(f"  - {author}")
 
+        # TODO 2 way sync this
         venue = self.get_venue_string(paper)
         if venue:
             frontmatter.append(f"venue: {venue}")
