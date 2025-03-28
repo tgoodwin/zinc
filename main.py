@@ -189,7 +189,118 @@ class ZoteroObsidianSync:
         conn.close()
         return list(papers.values())
 
+    def get_existing_markdown_file(self, title: str) -> Optional[Dict[str, str]]:
+        """Check if a markdown file with the given title already exists and return its content."""
+        fpath = self.papers_folder / f"{title}.md"
+        if fpath.exists() and fpath.is_file():
+            with fpath.open("r", encoding="utf-8") as file:
+                return {"path": str(fpath), "content": file.read()}
+        return None
+
     def create_markdown_file(self, paper: Paper) -> None:
+        """Create or update a markdown file for a paper with metadata in YAML frontmatter."""
+        title = paper.get("title", "Untitled Paper")
+        safe_title = re.sub(r'[<>:"/\\|?*]', "-", title)
+        file_path = self.papers_folder / f"{safe_title}.md"
+
+        # Initialize with tags from Zotero
+        all_tags = set(paper["tags"])
+
+        # Variables to store existing content
+        existing_notes = ""
+        existing_content = {}
+
+        # Extract existing tags and notes if the file exists
+        if file_path.exists():
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Find the YAML frontmatter section
+            frontmatter_match = re.search(r'---\n(.*?)\n---', content, re.DOTALL)
+            if frontmatter_match:
+                frontmatter_text = frontmatter_match.group(1)
+
+                # Extract tags from frontmatter
+                tags_match = re.search(r'tags:\n((?:  - .*?\n)+)', frontmatter_text, re.DOTALL)
+                if tags_match:
+                    tags_text = tags_match.group(1)
+                    obsidian_tags = [line.strip().replace('- ', '') for line in tags_text.split('\n') if line.strip()]
+                    all_tags.update(obsidian_tags)
+
+            # Extract all sections including notes
+            sections = re.findall(r'## ([^\n]*)(.*?)(?=\n## |$)', content, re.DOTALL)
+            for section_title, section_content in sections:
+                section_title = section_title.strip()
+                section_content = section_content.strip()
+                existing_content[section_title] = section_content
+
+                # Special handling for Notes section
+                if section_title == "Notes":
+                    existing_notes = section_content
+
+        # Create YAML frontmatter
+        frontmatter = [
+            "---",
+            f'title: "{title}"',
+            "type: academic-paper",
+            f'year: {self.format_item_date(paper.get("date")) or "Unknown"}',
+            f'zotero-key: {paper["key"]}',
+            f'accessed: {paper.get("accessDate", "")}',
+        ]
+
+        # Add the merged tags
+        if all_tags:
+            frontmatter.append("tags:")
+            for tag in sorted(all_tags):  # Sort for consistent ordering
+                frontmatter.append(f"  - {tag}")
+
+        if paper["authors"]:
+            frontmatter.append(
+                f'creator: {self.format_creator_string(paper["authors"])}'
+            )
+            frontmatter.append("authors:")
+            for author in paper["authors"]:
+                frontmatter.append(f"  - {author}")
+
+        venue = self.get_venue_string(paper)
+        if venue:
+            frontmatter.append(f"venue: {venue}")
+
+        frontmatter.append("---\n")
+
+        # Content sections
+        content = []
+
+        # Abstract section
+        content.append("## Abstract")
+        if "Abstract" in existing_content and existing_content["Abstract"]:
+            content.append(existing_content["Abstract"])
+        else:
+            content.append(f'{paper.get("abstractNote", "")}')
+        content.append("")  # Add spacing between sections
+
+        # Notes section
+        content.append("## Notes")
+        if existing_notes:
+            content.append(existing_notes)
+        content.append("")  # Add spacing between sections
+
+        # References section - only add once
+        content.append("## References")
+        references = [
+            f'- Zotero Key: {paper["key"]}',
+            f'- DOI: {paper.get("DOI", "")}',
+        ]
+
+        if paper.get("backlink"):
+            references.append(f'- [PDF]({paper["backlink"]})')
+
+        content.append("\n".join(references))
+
+        # Write the complete file
+        file_path.write_text("\n".join(frontmatter + content), encoding="utf-8")
+
+    def create_markdown_file_old(self, paper: Paper) -> None:
         """Create a markdown file for a paper with metadata in YAML frontmatter."""
         title = paper.get("title", "Untitled Paper")
         safe_title = re.sub(r'[<>:"/\\|?*]', "-", title)
@@ -202,6 +313,7 @@ class ZoteroObsidianSync:
             f'year: {self.format_item_date(paper.get("date")) or "Unknown"}',
             f'zotero-key: {paper["key"]}',
             f'accessed: {paper.get("accessDate", "")}',
+            f'backlink: {paper.get("backlink", "")}',
         ]
 
         # TODO 2 way sync this
@@ -237,7 +349,16 @@ class ZoteroObsidianSync:
         ]
 
         file_path = self.papers_folder / f"{safe_title}.md"
-        file_path.write_text("\n".join(frontmatter + content), encoding="utf-8")
+        # Check if file already exists
+        existing_file = self.get_existing_markdown_file(safe_title)
+        if existing_file:
+            print(f"File already exists: {existing_file['path']}")
+            print(
+                f"Content:\n{existing_file['content']}\n")
+
+            return
+
+        # file_path.write_text("\n".join(frontmatter + content), encoding="utf-8")
 
     def sync(self) -> None:
         """Synchronize Zotero library with Obsidian vault."""
