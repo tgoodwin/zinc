@@ -192,7 +192,9 @@ class ZoteroObsidianSync:
     def get_existing_markdown_file(self, title: str) -> Optional[Dict[str, str]]:
         """Check if a markdown file with the given title already exists and return its content."""
         fpath = self.papers_folder / f"{title}.md"
+        print("checking for file at ", fpath)
         if fpath.exists() and fpath.is_file():
+            print("file already exists:", fpath)
             with fpath.open("r", encoding="utf-8") as file:
                 return {"path": str(fpath), "content": file.read()}
         return None
@@ -212,6 +214,7 @@ class ZoteroObsidianSync:
 
         # Extract existing tags and notes if the file exists
         if file_path.exists():
+            print("file already exists, reading content:", file_path)
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
@@ -237,6 +240,8 @@ class ZoteroObsidianSync:
                 # Special handling for Notes section
                 if section_title == "Notes":
                     existing_notes = section_content
+        else:
+            print("file does not exist, creating new file:", file_path)
 
         # Create YAML frontmatter
         frontmatter = [

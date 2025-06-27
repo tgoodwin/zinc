@@ -49,3 +49,11 @@ OBSIDIAN_VAULT='/Users/$USER/Library/Mobile Documents/iCloud~md~obsidian/Documen
 
 python3 main.py --zotero-db="$ZOTERO_DB" --obsidian-vault="$OBSIDIAN_VAULT"
 ```
+
+## Scheduling
+Add the following to your crontab (view with `crontab -e`) to run at the top of every hour
+```
+0 * * * * sh /Users/$USER/projects/zinc/run.sh
+```
+
+
