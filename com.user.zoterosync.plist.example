@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.zinc</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/your/project/dist/Zinc.app/Contents/MacOS/Zinc</string>
+        <string>--zotero-db</string>
+        <string>/path/to/your/Zotero/zotero.sqlite</string>
+        <string>--obsidian-vault</string>
+        <string>/path/to/your/ObsidianVault</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/path/to/your/project</string>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>StandardErrorPath</key>
+    <string>/path/to/your/project/logs/zotero_sync_stderr.log</string>
+    <key>StandardOutPath</key>
+    <string>/path/to/your/project/logs/zotero_sync_stdout.log</string>
+</dict>
+</plist>
