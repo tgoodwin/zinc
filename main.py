@@ -199,7 +199,7 @@ class ZoteroObsidianSync:
                 return {"path": str(fpath), "content": file.read()}
         return None
 
-    def create_markdown_file(self, paper: Paper) -> None:
+    def create_markdown_file(self, paper: Paper, merge_tags: bool = False) -> None:
         """Create or update a markdown file for a paper with metadata in YAML frontmatter."""
         title = paper.get("title", "Untitled Paper")
         safe_title = re.sub(r'[<>:"/\\|?*]', "-", title)
@@ -211,6 +211,8 @@ class ZoteroObsidianSync:
         # Variables to store existing content
         existing_notes = ""
         existing_content = {}
+
+        venue = self.get_venue_string(paper)
 
         # Extract existing tags and notes if the file exists
         if file_path.exists():
@@ -224,11 +226,25 @@ class ZoteroObsidianSync:
                 frontmatter_text = frontmatter_match.group(1)
 
                 # Extract tags from frontmatter
-                tags_match = re.search(r'tags:\n((?:  - .*?\n)+)', frontmatter_text, re.DOTALL)
+                tags_match = re.search(r'tags:\n((?:  - [^\n]*\n?)+)', frontmatter_text, re.DOTALL)
                 if tags_match:
                     tags_text = tags_match.group(1)
                     obsidian_tags = [line.strip().replace('- ', '') for line in tags_text.split('\n') if line.strip()]
-                    all_tags.update(obsidian_tags)
+                    if merge_tags:
+                        all_tags.update(obsidian_tags)
+                    else:
+                        all_tags = set(obsidian_tags)
+
+                # get year and honor obsidian value if it exists and is not "Unknown"
+                year_match = re.search(r'year:\s*(.*)', frontmatter_text)
+                if year_match and (not paper.get("date") or "Unknown" in year_match.group(1)):
+                    paper["date"] = year_match.group(1).strip()
+
+                # venue match
+                venue_match = re.search(r'venue:\s*(.*)', frontmatter_text)
+                if venue_match and (not venue or "Unknown" in venue_match.group(1)):
+                    venue = venue_match.group(1).strip()
+
 
             # Extract all sections including notes
             sections = re.findall(r'## ([^\n]*)(.*?)(?=\n## |$)', content, re.DOTALL)
@@ -248,7 +264,8 @@ class ZoteroObsidianSync:
             "---",
             f'title: "{title}"',
             "type: academic-paper",
-            f'year: {self.format_item_date(paper.get("date")) or "Unknown"}',
+            f'year: {self.format_item_date(paper.get("date")) or ""}',
+            f'venue: {venue or ""}',
             f'zotero-key: {paper["key"]}',
             f'accessed: {paper.get("accessDate", "")}',
         ]
@@ -266,10 +283,6 @@ class ZoteroObsidianSync:
             frontmatter.append("authors:")
             for author in paper["authors"]:
                 frontmatter.append(f"  - {author}")
-
-        venue = self.get_venue_string(paper)
-        if venue:
-            frontmatter.append(f"venue: {venue}")
 
         frontmatter.append("---\n")
 
@@ -389,11 +402,19 @@ def main() -> None:
         default="~/Documents/ObsidianVault",
         help="Path to Obsidian vault",
     )
+    parser.add_argument(
+        "--papers-folder",
+        type=str,
+        default="zotero",
+        help="folder within obsidian vault to hold paper notes",
+    )
 
     args = parser.parse_args()
 
     syncer = ZoteroObsidianSync(
-        os.path.expanduser(args.zotero_db), os.path.expanduser(args.obsidian_vault)
+        os.path.expanduser(args.zotero_db),
+        os.path.expanduser(args.obsidian_vault),
+        args.papers_folder
     )
     syncer.sync()
 
